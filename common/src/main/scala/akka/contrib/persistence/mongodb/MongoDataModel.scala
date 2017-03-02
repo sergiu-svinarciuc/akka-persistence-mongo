@@ -35,7 +35,12 @@ case class Serialized[C <: AnyRef](bytes: Array[Byte], clazz: Class[C], serializ
       case s:SerializerWithStringManifest =>
         ser.deserialize(bytes, s.identifier, serializedManifest.getOrElse(clazz.getName))
 
-      case s => ser.deserialize(bytes, s.identifier, Some(clazz)).asInstanceOf[Try[AnyRef]]
+      case s =>
+        if (s.includeManifest) {
+          ser.deserialize(bytes, s.identifier, serializedManifest.get)
+        } else {
+          ser.deserialize(bytes, s.identifier, Some(clazz)).asInstanceOf[Try[AnyRef]]
+        }
     }
 
     tried match {
@@ -52,7 +57,8 @@ object Serialized {
       case s:SerializerWithStringManifest =>
         new Serialized(s.toBinary(any), clazz, Some(s.identifier), Option(s.manifest(any)))
       case s =>
-        new Serialized(s.toBinary(any), clazz, Some(s.identifier), None)
+        val manifest = if (s.includeManifest) Option(clazz.getName) else Option(PersistentRepr.Undefined)
+        new Serialized(s.toBinary(any), clazz, Some(s.identifier), manifest)
     }
   }
 }
